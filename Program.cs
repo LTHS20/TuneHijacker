@@ -12,14 +12,14 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
 
         static void Main(string[] args)
         {
-            /*if (args.Length == 0)
+            if (args.Length == 0)
             {
                 return;
             }
 
-            var bind = args[0];*/
+            var bind = args[0];
 
-            var bind = "94EA32ADF778@Bedroom";
+            //var bind = "94EA32ADF778@Bedroom";
 
             /*//TuneBlade.client.PutAsync("StreamingMode", new StringContent("{\"StreamingMode\":\"RealTime\",\"BufferSize\":-1}"));
             var a = TuneBlade.GetStreaming()!;
