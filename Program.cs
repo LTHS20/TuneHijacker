@@ -3,25 +3,23 @@ using System.Diagnostics;
 using System.Net.Sockets;
 using System.Net;
 using Tune;
-using System.Text.Json;
-using System.Net.Http.Json;
+using AudioController;
 
 namespace TuneHijacker // Note: actual namespace depends on the project name.
 {
     internal class Program
     {
 
-
         static void Main(string[] args)
         {
-            if (args.Length == 0)
+            /*if (args.Length == 0)
             {
                 return;
             }
 
-            var bind = args[0];
+            var bind = args[0];*/
 
-            //var bind = "94EA32ADF778@Bedroom";
+            var bind = "94EA32ADF778@Bedroom";
 
             /*//TuneBlade.client.PutAsync("StreamingMode", new StringContent("{\"StreamingMode\":\"RealTime\",\"BufferSize\":-1}"));
             var a = TuneBlade.GetStreaming()!;
@@ -30,6 +28,8 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
             //_ = TuneBlade.client.PutAsJsonAsync("StreamingMode", a).Result;
             TuneBlade.client.PutAsync("StreamingMode", new StringContent(JsonSerializer.Serialize(a)));*/
 
+            //AudioManager.SetApplicationMute(65092, true);
+            //AudioManager.SetMasterVolumeMute(true);
 
             //Console.ReadKey();
 
@@ -42,6 +42,7 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
                     var device = TuneBlade.GetDevice(bind);
                     if (stats == MusicStats.RUNNING)
                     {
+                        depriveRegulateds();
                         var streaming = TuneBlade.GetStreaming();
                         if (streaming.StreamingMode != "RealTime")
                         {
@@ -61,6 +62,7 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
                         {
                             device.disconnect();
                         }
+                        restoreRegulateds();
                     }
 
                     Console.WriteLine("current state: " + stats);
@@ -72,6 +74,47 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
                 Thread.Sleep(2000);
             }
 
+        }
+
+        static string[] RegulatedNames = { "cloudmusic", "LyricEase", "msedge" };
+
+        static List<int> GetRegulatedPIDs()
+        {
+            List<int> regulatedPIDs = new List<int>();
+            foreach (var process in Process.GetProcesses())
+            {
+                foreach (var name in RegulatedNames)
+                {
+                    if (process.ProcessName.Contains(name))
+                    {
+                        regulatedPIDs.Add(process.Id);
+                    }
+                }
+            }
+            return regulatedPIDs;
+        }
+
+
+        static void restoreRegulateds()
+        {
+            foreach (int id in GetRegulatedPIDs())
+            {
+                if (AudioManager.GetApplicationMute(id) == true)
+                {
+                    AudioManager.SetApplicationMute(id, false);
+                }
+            }
+        }
+
+        static void depriveRegulateds()
+        {
+            foreach (int id in GetRegulatedPIDs())
+            {
+                if (AudioManager.GetApplicationMute(id) == false)
+                {
+                    AudioManager.SetApplicationMute(id, true);
+                }
+            }
         }
 
         static void KeepTuneRunning()
@@ -109,6 +152,18 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
                 return MusicStats.STOPPED;
             }
             {
+                foreach (string s in RunAdbCmd("adb devices").Split("\n"))
+                {
+                    if (!s.Contains("localhost:58526"))
+                    {
+                        continue;
+                    }
+                    if (s.Contains("offline"))
+                    {
+                        RunAdbCmd("kill-server");
+                    }
+                }
+
                 var connection = RunAdbCmd("connect localhost:58526");
 
                 if (!connection.Contains("already"))
