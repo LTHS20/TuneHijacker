@@ -4,20 +4,18 @@ using System.Net.Sockets;
 using System.Net;
 using Tune;
 using AudioController;
+using SharpYaml;
 
 namespace TuneHijacker // Note: actual namespace depends on the project name.
 {
     internal class Program
     {
 
-        static void Main(string[] args)
-        {
-            if (args.Length == 0)
-            {
-                return;
-            }
+        static bool IsRestore = false;
 
-            var bind = args[0];
+        static void Main(string[] binds)
+        {
+            Console.WriteLine("binded: " + binds);
 
             //var bind = "94EA32ADF778@Bedroom";
 
@@ -32,40 +30,99 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
             //AudioManager.SetMasterVolumeMute(true);
 
             //Console.ReadKey();
-
+            
             while (true)
             {
                 try
                 {
                     KeepTuneRunning();
-                    var stats = GetMusicStats();
-                    var device = TuneBlade.GetDevice(bind);
-                    if (stats == MusicStats.RUNNING)
+                    //var stats = GetMusicStats();
+
+                    if (binds.Contains("-streaming"))
                     {
-                        depriveRegulateds();
                         var streaming = TuneBlade.GetStreaming();
-                        if (streaming.StreamingMode != "RealTime")
+                        if (streaming.StreamingMode != "Custom" || streaming.BufferSize != 0)
                         {
-                            streaming.StreamingMode = "RealTime";
+                            streaming.StreamingMode = "Custom";
+                            streaming.BufferSize = 0;
                             TuneBlade.SetStreaming(streaming);
                         }
+                    }
 
-                        if (device.Status != "Connected")
+                    var active = false;
+
+                    if (binds.Contains("-auto"))
+                    {
+                        foreach (var bind in binds)
                         {
-                            device.connect();
-                        }
+                            if (bind.StartsWith("-"))
+                            {
+                                continue;
+                            }
 
+                            var device = TuneBlade.GetDevice(bind);
+
+                            if (device == null)
+                            {
+                                active = false;
+                                break;
+                            }
+
+                            if (device.Status != "Connected")
+                            {
+                                device.connect();
+                            }
+
+                            active = true;
+
+                            /*if (stats == MusicStats.RUNNING)
+                            {
+                                var streaming = TuneBlade.GetStreaming();
+                                if (streaming.StreamingMode != "RealTime")
+                                {
+                                    streaming.StreamingMode = "RealTime";
+                                    TuneBlade.SetStreaming(streaming);
+                                }
+
+                                if (device.Status != "Connected")
+                                {
+                                    device.connect();
+                                }
+
+                                active = true;
+
+                            }
+                            else
+                            {
+                                if (device.Status != "Disonnect")
+                                {
+                                    device.disconnect();
+                                }
+                                active = false;
+                            }*/
+                        }
                     }
                     else
                     {
-                        if (device.Status != "Disonnect")
-                        {
-                            device.disconnect();
-                        }
-                        restoreRegulateds();
+                        Console.WriteLine("manually...");
                     }
 
-                    Console.WriteLine("current state: " + stats);
+
+                    if (active)
+                    {
+                        IsRestore = true;
+                        depriveRegulateds();
+                    }
+                    else
+                    {
+                        if (IsRestore)
+                        {
+                            restoreRegulateds();
+                            IsRestore = false;
+                        }
+                    }
+
+                    Console.WriteLine("is active? : " + active);
                 }
                 catch (Exception ex)
                 {
@@ -76,7 +133,7 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
 
         }
 
-        static string[] RegulatedNames = { "cloudmusic", "LyricEase", "msedge" };
+        static string[] RegulatedNames = { "cloudmusic", "LyricEase" };
 
         static List<int> GetRegulatedPIDs()
         {
@@ -97,6 +154,11 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
 
         static void restoreRegulateds()
         {
+            if (AudioManager.GetMasterVolumeMute())
+            {
+                AudioManager.SetMasterVolumeMute(false);
+            }
+
             foreach (int id in GetRegulatedPIDs())
             {
                 if (AudioManager.GetApplicationMute(id) == true)
@@ -108,6 +170,11 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
 
         static void depriveRegulateds()
         {
+            if (!AudioManager.GetMasterVolumeMute())
+            {
+                AudioManager.SetMasterVolumeMute(true);
+            }
+
             foreach (int id in GetRegulatedPIDs())
             {
                 if (AudioManager.GetApplicationMute(id) == false)
@@ -123,7 +190,7 @@ namespace TuneHijacker // Note: actual namespace depends on the project name.
             {
                 var p = new Process(); //实例一个Process类，启动一个独立进程
                 p.StartInfo.FileName = "C:\\Program Files (x86)\\TuneBlade\\TuneBlade\\TuneBlade.exe"; //设定程序名
-                p.StartInfo.Arguments = "Silent Isolate StartHttpControl Port=54412";
+                p.StartInfo.Arguments = "Silent StartHttpControl Port=54412";
                 p.StartInfo.CreateNoWindow = true; // 设置不显示窗口
                 p.StartInfo.WindowStyle = ProcessWindowStyle.Hidden;
                 p.Start();
